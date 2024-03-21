@@ -1,0 +1,191 @@
+---
+title: "Netflix price analysis"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+date: '2022-04-15'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,include=FALSE}
+library(tidyverse)
+library(devtools)
+library(readxl)
+library(readr)
+library(cowplot)
+library(ggplot2)
+library(dplyr)
+require(maps)
+require(viridis)
+theme_set(theme_void() )
+```
+
+
+```{r, include=FALSE}
+net <- read_csv("netflix_price.csv")
+View(net)
+net1 <- head(net)
+```
+The video streaming giant is currently available in over 190 countries with thousands of shows and movies. However, every Netflix library differs by country.
+We used Kaggle database site, which provided us with libraries for 65 countries, to find out how many TV shows and movies are available in each country and how much it costs.
+```{r, echo=FALSE}
+net
+```
+
+```{r, include=FALSE}
+data_long <- gather(net, condition, measurement, Total_Library_Size:Cost_Premium, factor_key=TRUE)
+data_long
+test <- data_long %>%
+  filter(condition == 'TV_Shows' | condition == 'Movies')
+
+```
+
+
+This bar chart shows the number of libraries in countries and the stacked bar chart below shows the number of Netflix titles across **TV shows** and **movies**. We can see that Czechia has the largest library, Croatia the smallest. Largest movie collection is available in Malaysia, and TV shows in Czechia.
+
+```{r, echo=FALSE}
+Library_Size <- ggplot(net, aes(x=Country, y=Total_Library_Size)) + theme_bw()+ theme(axis.title = element_text(size=8), axis.text.x = element_text(angle=90, hjust=1,size=7))+ geom_bar(stat="identity", width=.5, fill="gray34") +labs(y="Library Size", title ="Library Size")
+testing <- ggplot(data=test, aes(x=Country, y=measurement, color = condition)) +
+  geom_bar(position="stack", stat="identity")  + theme_bw()+ theme(axis.title = element_text(size=8), axis.text.x = element_text(angle=90, hjust=1,size=6))+ geom_bar(stat="identity", width=.5) +labs(y="Library Size", title ='TV shows/Movie' ) 
+plot_grid(Library_Size, testing, ncol = 1)
+
+```
+```{r,include=FALSE}
+
+net_copy <- net %>%
+  rename('Basic Plan' ='Cost_Basic',
+         'Standard Plan' = 'Cost_Standard',
+         'Premium Plan' = 'Cost_Premium')
+
+
+## Again, I am making my data long so it is easier to incorporate
+data_long <- gather(net_copy, condition, measurement, Total_Library_Size:'Premium Plan', factor_key=TRUE)
+data_long
+
+test <- data_long %>%
+  filter(condition == 'Basic Plan' | condition == 'Standard Plan' |condition == 'Premium Plan')
+```
+Netflix offers a variety of plans to meet your needs.
+Our bar chart will help you see all plans with their monthly costs in many countries and easily see the most convenient ones.
+
+```{r, echo=FALSE}
+plans2 <- ggplot(data=test, aes(x=Country, y=measurement, fill = condition)) +
+  geom_bar(stat="identity", width=.5, position = "dodge") +
+  theme_bw() +
+  theme(axis.title = element_text(size=8), axis.text.x = element_text(angle=90, hjust=1)) + 
+  labs(fill='Plan Type') + 
+  ylab("Cost per Plan\n(USD)")
+  
+plans2
+```
+
+
+
+
+
+Bellow you can see the graph of each plan.
+As you can see in all plans the cheapest option is Turkey and the most expensive one is Switzerland.
+
+
+```{r, echo=FALSE}
+p1<-ggplot(net, aes(x=Country, y=Cost_Basic)) + theme_bw()+ theme(axis.title = element_text(size=8), axis.text.x = element_text(angle=90, hjust=1, size=5))+ geom_bar(stat="identity", width=.5, fill="tomato")+labs(y="Cost per Plan\n(USD)", title ="Basic")
+p2<-ggplot(net, aes(x=Country, y=Cost_Standard)) + theme_bw()+ theme(axis.title = element_text(size=8), axis.text.x = element_text(angle=90, hjust=1, size=5))+ geom_bar(stat="identity", width=.5, fill="limegreen")+labs(y="Cost per Plan\n(USD)" , title ="Standard")
+p3<-ggplot(net, aes(x=Country, y=Cost_Premium)) + theme_bw()+ theme(axis.title = element_text(size=8), axis.text.x = element_text(angle=90, hjust=1, size=5))+ geom_bar(stat="identity", width=.5, fill="cornflowerblue")+labs(x="Country",y="Cost per Plan\n(USD)", title ="Premium")
+plot_grid(p1, p2,p3, labels = c('', '',''), ncol = 1)
+```
+
+```{r,include=FALSE}
+world <- map_data("world")
+worldplot <- ggplot() +
+geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
+coord_fixed(1.3)
+worldplot
+diff <- setdiff(world$region, net$Country)
+net <- net %>%
+mutate(Country = recode(str_trim(Country), "United States" = "USA",
+"United Kingdom" = "UK"))
+net <- net %>%
+rename(region = Country)
+worldSubset <- left_join(world, net, by = "region")
+plain <- theme(
+axis.text = element_blank(),
+axis.line = element_blank(),
+axis.ticks = element_blank(),
+panel.border = element_blank(),
+panel.grid = element_blank(),
+axis.title = element_blank(),
+panel.background = element_rect(fill = "white"),
+plot.title = element_text(hjust = 0.5))
+```
+
+Netflix is available in 190 different countries, but the catalog of movies and TV shows is different depending on location. Here you can see the heat map of total library size.
+
+
+```{r, echo=FALSE}
+net_map <- ggplot(data = worldSubset, mapping = aes(x = long, y = lat, group = group)) +
+coord_fixed(1.3) +
+geom_polygon(aes(fill = Total_Library_Size),colour = "black") +
+scale_fill_distiller(palette ="YlOrRd", direction = 1) +
+ggtitle("Total Library Size") + plain
+net_map
+```
+
+
+```{r,include=FALSE}
+net <- read_csv("netflix_price.csv")
+net2 <- select (net, c(Country,Total_Library_Size,Cost_Basic))
+net2$For_a_dollar <- round(net2$Total_Library_Size/net2$Cost_Basic)
+```
+
+
+
+```{r,include=FALSE}
+net <- read_csv("netflix_price.csv")
+net2 <- select (net, c(Country,Total_Library_Size,Cost_Basic))
+net2$per_dollar <- round(net2$Total_Library_Size/net2$Cost_Basic)
+world <- map_data("world")
+worldplot <- ggplot() +
+geom_polygon(data = world, aes(x=long, y = lat, group = group)) +
+coord_fixed(1.3)
+worldplot
+diff <- setdiff(world$region, net2$Country)
+net2 <- net2 %>%
+mutate(Country = recode(str_trim(Country), "United States" = "USA",
+"United Kingdom" = "UK"))
+net2 <- net2 %>%
+rename(region = Country)
+worldSubset <- left_join(world, net2, by = "region")
+plain <- theme(
+axis.text = element_blank(),
+axis.line = element_blank(),
+axis.ticks = element_blank(),
+panel.border = element_blank(),
+panel.grid = element_blank(),
+axis.title = element_blank(),
+panel.background = element_rect(fill = "white"),
+plot.title = element_text(hjust = 0.5))
+```
+
+
+Having the biggest library doesn't mean having the best deal, though: 
+To find the best option, we’ve divided the number of library size by monthly cost of the basic plan.
+
+
+```{r, echo=FALSE}
+net_map <- ggplot(data = worldSubset, mapping = aes(x = long, y = lat, group = group)) +
+coord_fixed(1.3) +
+geom_polygon(aes(fill = per_dollar),colour = "black") +
+scale_fill_distiller(palette ="YlOrRd", direction = 1) +
+ggtitle("Titles per dollar") + plain
+net_map
+```
+The biggest library size  offer Czechia(7325,830), Slovakia(7035,779) and Hungary(6884,901).
+But due to their cheap prices across all plans, Turkey(4639,2355), India(5843,2213), and  Argentina(4760,1273) are the most cost-effective countries to watch Netflix from. Most expensive countries to watch Netflix from are Liechtenstein(3048,237), Croatia(3048,252) and San Marino(2310,256).
+
+```{r, echo=FALSE}
+net2
+```
